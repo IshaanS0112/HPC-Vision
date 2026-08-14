@@ -1,61 +1,55 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+from pathlib import Path
 
-df = pd.read_csv("results/thread_scaling_results.csv")
+RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
+df = pd.read_csv(RESULTS_DIR / "thread_scaling_results.csv")
 
-sizes = sorted(df["size"].unique())
+# Ensure correct column names
+df.columns = ["threads", "time"]
+
+# Convert threads to numeric (fix string issue)
+df["threads"] = pd.to_numeric(df["threads"], errors="coerce")
+df["time"] = pd.to_numeric(df["time"], errors="coerce")
+
+# Drop invalid rows
+df = df.dropna()
+
+# Sort by threads
+df = df.sort_values("threads")
 
 # Runtime vs Threads
-for size in sizes:
-    subset = df[df["size"] == size]
-    plt.plot(subset["threads"], subset["time"], marker="o", label=f"{size}x{size}")
-
+plt.plot(df["threads"], df["time"], marker="o")
 plt.xlabel("Threads")
 plt.ylabel("Execution Time (seconds)")
 plt.title("Runtime vs Threads")
-plt.legend()
-plt.savefig("results/runtime_vs_threads.png")
+plt.savefig(RESULTS_DIR / "runtime_vs_threads.png")
 plt.clf()
 
-
 # Speedup vs Threads
-for size in sizes:
-    subset = df[df["size"] == size]
-    baseline = subset[subset["threads"] == 1]["time"].values[0]
-    speedup = baseline / subset["time"]
-    plt.plot(subset["threads"], speedup, marker="o", label=f"{size}x{size}")
+# Get baseline (threads = 1 or smallest available)
+if (df["threads"] == 1).any():
+    baseline = df[df["threads"] == 1]["time"].values[0]
+else:
+    baseline = df.iloc[0]["time"]
 
+speedup = baseline / df["time"]
+
+plt.plot(df["threads"], speedup, marker="o")
 plt.xlabel("Threads")
 plt.ylabel("Speedup")
 plt.title("Speedup vs Threads")
-plt.legend()
-plt.savefig("results/speedup_vs_threads.png")
+plt.savefig(RESULTS_DIR / "speedup_vs_threads.png")
 plt.clf()
 
-
 # Efficiency vs Threads
-for size in sizes:
-    subset = df[df["size"] == size]
-    baseline = subset[subset["threads"] == 1]["time"].values[0]
-    efficiency = (baseline / subset["time"]) / subset["threads"]
-    plt.plot(subset["threads"], efficiency, marker="o", label=f"{size}x{size}")
+efficiency = speedup / df["threads"]
 
+plt.plot(df["threads"], efficiency, marker="o")
 plt.xlabel("Threads")
 plt.ylabel("Efficiency")
 plt.title("Parallel Efficiency vs Threads")
-plt.legend()
-plt.savefig("results/efficiency_vs_threads.png")
+plt.savefig(RESULTS_DIR / "efficiency_vs_threads.png")
 plt.clf()
 
-
-# Runtime vs Matrix Size (8 threads only)
-subset = df[df["threads"] == 8]
-plt.plot(subset["size"], subset["time"], marker="o")
-
-plt.xlabel("Matrix Size")
-plt.ylabel("Execution Time (seconds)")
-plt.title("Runtime vs Matrix Size (8 Threads)")
-plt.savefig("results/runtime_vs_matrix_size.png")
-plt.clf()
-
-print("Scaling plots generated successfully.")
+print("Thread scaling plots generated successfully.")

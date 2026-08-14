@@ -65,6 +65,68 @@ int main(int argc, char *argv[])
 
     printf("OpenMP CPU time: %f seconds\n", end-start);
 
+    // Decide logging based on thread mode
+    char *threads_env = getenv("OMP_NUM_THREADS");
+
+    // ---- NORMAL SIZE BENCHMARK ----
+    if (threads_env == NULL || atoi(threads_env) <= 1)
+    {
+        FILE *fp_check = fopen("../results/openmp_results.csv", "r");
+        if (fp_check == NULL)
+        {
+            FILE *fp_init = fopen("../results/openmp_results.csv", "w");
+            if (fp_init)
+            {
+                fprintf(fp_init, "size,time\n");
+                fclose(fp_init);
+            }
+        }
+        else
+        {
+            fclose(fp_check);
+        }
+
+        FILE *fp = fopen("../results/openmp_results.csv", "a");
+        if (fp)
+        {
+            fprintf(fp, "%d,%f\n", N, end - start);
+            fclose(fp);
+        }
+        else
+        {
+            perror("Error opening OpenMP results file");
+        }
+    }
+
+    // Thread scaling logging
+    // reuse previously read OMP_NUM_THREADS
+    if (threads_env != NULL)
+    {
+        FILE *fp2 = fopen("../results/thread_scaling_results.csv", "a");
+
+        // ensure header
+        FILE *fp2_check = fopen("../results/thread_scaling_results.csv", "r");
+        if (fp2_check == NULL)
+        {
+            FILE *fp2_init = fopen("../results/thread_scaling_results.csv", "w");
+            if (fp2_init)
+            {
+                fprintf(fp2_init, "threads,time\n");
+                fclose(fp2_init);
+            }
+        }
+        else
+        {
+            fclose(fp2_check);
+        }
+
+        if (fp2 != NULL)
+        {
+            fprintf(fp2, "%s,%f\n", threads_env, end-start);
+            fclose(fp2);
+        }
+    }
+
     free(A);
     free(B);
     free(C);

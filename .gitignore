@@ -16,3 +16,32 @@ __pycache__/
 .vscode/settings.json
 
 results/*.png
+
+# Generated benchmark matrices. datasets/generate_matrices.py rebuilds every one
+# of these (seeded, so byte-identical on any machine), which makes committing them
+# pure repository weight - and matrixA_3072.txt at 225 MB is over GitHub's hard
+# 100 MB per-file push limit. Regenerate with:
+#     python datasets/generate_matrices.py
+#
+# Written as two literal patterns rather than one matrix[AB]_*.txt class: git
+# sets core.ignorecase=true on a case-insensitive filesystem (the macOS
+# default), and under casefolding it lowercases the candidate path but not the
+# characters inside a bracket expression, so [AB] stops matching a capital A.
+# The class form silently fails to ignore anything on exactly the machines this
+# project is developed on.
+matrixA_*.txt
+matrixB_*.txt
+datasets/matrixA_*.txt
+datasets/matrixB_*.txt
+
+# Git internals that were committed by accident
+FETCH_HEAD
+
+# Editor backup files
+*.save
+*~
+*.bak
+
+# CMake / build output
+build/
+compile_commands.json

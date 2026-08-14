@@ -1,186 +1,160 @@
-# HPC-Vision: Matrix Multiplication Performance Benchmark
+# HPC-Vision
 
-## Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-HPC-Vision is a high-performance computing benchmark project that compares multiple implementations of matrix multiplication across different architectures:
+**Dense matrix multiplication benchmarked across four execution models:** serial
+C, OpenMP multithreaded C, OpenCL, and CUDA (naive and tiled).
 
-- Serial (baseline CPU)
-- OpenMP (multi-threaded CPU)
-- OpenCL (portable GPU / heterogeneous devices)
-- CUDA (NVIDIA GPU)
+The point of the project is not the matrix multiply — it is measuring what each
+parallel programming model actually buys you on the same problem, and where the
+speedup stops coming from more threads.
 
-The project evaluates execution time, scalability, and speedup using both naive and tiled algorithms with automated benchmarking and visualization.
-
----
-
-## Features
-
-- Serial matrix multiplication baseline
-- OpenMP parallel CPU implementation
-- OpenCL GPU implementation
-- CUDA GPU implementation
-- Naive vs tiled optimization comparison
-- Automated benchmark execution script
-- Performance visualization plots
-- Architecture speedup comparison tools
+C · OpenMP · OpenCL · CUDA · Python (matplotlib / pandas)
 
 ---
 
-## Project Structure
+## Results
+
+Measured on the same input matrices, single machine. Times in seconds.
+
+| N | Serial CPU | OpenMP (8 threads) | Speedup |
+|---:|---:|---:|---:|
+| 256 | 0.0487 | 0.0091 | 5.4× |
+| 512 | 0.3640 | 0.0575 | 6.3× |
+| 1024 | 2.9992 | 0.5802 | 5.2× |
+| 1536 | 6.5819 | 1.1911 | 5.5× |
+| 2048 | 27.1242 | 5.4395 | 5.0× |
+
+### Thread scaling at N = 1024
+
+| Threads | Time (s) | Speedup | Parallel efficiency |
+|---:|---:|---:|---:|
+| 1 | 3.2974 | 1.00× | 100% |
+| 2 | 1.6514 | 2.00× | 100% |
+| 4 | 0.8374 | 3.94× | 98% |
+| 8 | 0.5643 | 5.84× | 73% |
+
+Near-linear to 4 threads, then efficiency falls to 73% at 8. The interesting part
+of this benchmark is that drop-off, not the headline speedup: the naive triple
+loop is memory-bandwidth bound, so past a certain thread count the cores are
+waiting on the same memory bus rather than computing. That is also why the
+serial→OpenMP speedup sits at ~5× rather than ~8× on an 8-thread run.
+
+### GPU results
+
+CSVs for OpenCL and CUDA are in `results/`. **Read the caveat below before quoting
+these numbers.**
+
+---
+
+## Honest status of the measurements
+
+Worth stating plainly, because the numbers are the deliverable:
+
+- **Serial, OpenMP, and thread-scaling timings are measured**, on one machine, from
+  the C binaries in this repo. Full precision, single runs (not averaged over
+  repetitions — see *Limitations*).
+- **`cuda_naive_results.csv` is measured** in Google Colab (`cuda/run_cuda_colab.ipynb`);
+  it carries full float precision (e.g. `0.000252896`).
+- **`opencl_results.csv` and `cuda_tiled_results.csv` are round to 1–2 significant
+  figures** (0.0005, 0.001, 0.006, 0.02, 0.05, 0.15). That is not what a timer
+  emits. They should be treated as approximate until re-measured with the same
+  instrumentation as the CUDA naive run, and the plots that use them read as
+  estimates rather than measurements.
+
+Re-running those two on a real device and committing the raw timer output is the
+single highest-value improvement to this project.
+
+---
+
+## Repository layout
 
 ```
-HPC-Vision/
-│
-├── cuda/
-│   ├── matrix_cuda_naive.cu
-│   └── matrix_cuda_tiled.cu
-│
-├── opencl/
-│   ├── matrix_kernel.cl
-│   └── matrix_opencl.c
-│
-├── openmp/
-│   ├── matrix_openmp.c
-│   └── matrix_serial.c
-│
-├── python_modules/
-│   ├── plot_results.py
-│   ├── plot_gpu_comparison.py
-│   ├── plot_speedup_architecture.py
-│   └── plot_thread_scaling.py
-│
-├── datasets/
-│   └── generate_matrices.py
-│
-├── main.py
-├── run_all.sh
-└── .gitignore
+openmp/     matrix_serial.c, matrix_openmp.c      serial + OpenMP kernels
+opencl/     matrix_opencl.c, matrix_kernel.cl     OpenCL host + device code
+cuda/       matrix_cuda_naive.cu,                 CUDA kernels
+            matrix_cuda_tiled.cu,
+            run_cuda_colab.ipynb                  Colab runner (no local GPU needed)
+datasets/   generate_matrices.py                  rebuilds all benchmark inputs
+python_modules/                                   plotting + summary table
+results/    *.csv, *.png                          timings and charts
+main.py                                           serial + OpenMP + plots
+run_all.sh                                        regenerate every chart
 ```
 
----
+## Running it
 
-## Matrix Sizes Tested
+The input matrices are **not** in the repository — they are ~1.4 GB of
+regenerable text, and the 3072² files are 225 MB each, over GitHub's hard 100 MB
+per-file limit. Generate them first:
 
-Benchmarks are executed on:
+```bash
+python datasets/generate_matrices.py                 # all sizes, ~1.4 GB
+python datasets/generate_matrices.py --sizes 256 512  # or just the small ones
+```
 
-256 × 256 512 × 512 1024 × 1024 1536 × 1536 2048 × 2048 3072 × 3072
+The generator is seeded, so the matrices are byte-identical on every machine and
+a timing taken today is comparable to one taken last month.
 
-Datasets are generated automatically using:
+```bash
+# Serial + OpenMP, then plots
+python main.py
 
-datasets/generate_matrices.py
+# Charts only, from the committed CSVs
+./run_all.sh
+```
 
----
+**OpenMP on macOS:** `main.py` passes `-Xpreprocessor -fopenmp` with Homebrew
+`libomp` paths (`/opt/homebrew/opt/libomp`), because Apple Clang does not ship
+OpenMP. On Linux with GCC, `-fopenmp` alone is enough and those flags need
+removing.
 
-## How to Run the Project
-
-### Step 1: Generate datasets
-
-python datasets/generate_matrices.py
-
-### Step 2: Run benchmarks
-
-chmod +x run_all.sh ./run_all.sh
-
-This executes all implementations sequentially and records performance metrics.
-
----
-
-## Generate Performance Plots
-
-### GPU comparison (CUDA vs OpenCL)
-
-python python_modules/plot_gpu_comparison.py
-
-### Overall performance comparison
-
-python python_modules/plot_results.py
-
-### Thread scaling visualization (OpenMP)
-
-python python_modules/plot_thread_scaling.py
-
-### Architecture speedup comparison
-
-python python_modules/plot_speedup_architecture.py
+**CUDA:** run `cuda/run_cuda_colab.ipynb` in Google Colab — no local NVIDIA GPU
+required.
 
 ---
 
-## Optimization Techniques Used
+## What each implementation does
 
-### Naive Algorithm
-
-Standard triple-nested loop matrix multiplication:
-
-O(n³)
-
-Used as baseline performance reference.
-
----
-
-### Tiled Algorithm
-
-Improves cache locality and shared memory utilization by processing matrices in sub-blocks.
-
-Benefits:
-
-- Reduced global memory access
-- Improved cache reuse
-- Higher throughput on GPUs
-- Better scalability for large matrices
+- **Serial** — the baseline triple loop. Every speedup number is relative to this.
+- **OpenMP** — `#pragma omp parallel for` over the outer loop, so each thread owns a
+  contiguous band of output rows and no two threads write the same cache line.
+- **OpenCL** — one work-item per output element, portable across GPU vendors and CPUs.
+- **CUDA naive** — one thread per output element; every thread reads a full row and
+  a full column straight from global memory.
+- **CUDA tiled** — the same computation staged through `__shared__` memory in tiles,
+  so each loaded element is reused by every thread in the block instead of being
+  fetched from global memory once per thread. This is the optimisation that
+  matters on a GPU, and comparing it against the naive kernel is the point of
+  having both.
 
 ---
 
-## Performance Metrics Evaluated
+## Limitations
 
-The project measures:
+- **Single-run timings, not averaged.** Each figure is one execution, so it carries
+  run-to-run variance (cache state, frequency scaling, other load). Reporting the
+  median of 5 runs with a spread would be the correct form.
+- **OpenCL and CUDA-tiled numbers are rounded** — see *Honest status* above.
+- **CPU and GPU timings come from different machines** (local vs Colab), so the
+  cross-architecture chart compares hardware as much as programming model.
+- **GPU timings exclude host↔device transfer.** Kernel time alone flatters the GPU:
+  for a single multiply, PCIe transfer often dominates. Timing the round trip
+  would be the honest end-to-end comparison.
+- **No correctness check against a reference.** The kernels are not verified against
+  a known-good result (e.g. NumPy) — a fast kernel that computes the wrong answer
+  would pass this benchmark silently. This is the first thing worth adding.
+- **`np.savetxt` is a wasteful input format:** a 1024² float matrix is 25 MB as text
+  versus ~8 MB binary, and parsing dominates small-N runs. Kept because the C
+  readers parse text.
 
-- Execution time
-- Speedup vs serial implementation
-- Thread scalability (OpenMP)
-- GPU vs CPU acceleration
-- CUDA vs OpenCL performance comparison
+## Next
 
----
+Verify every kernel against a NumPy reference · median-of-N timings with spread ·
+re-measure OpenCL and CUDA tiled with proper instrumentation · include host↔device
+transfer in GPU timings · try a cache-blocked serial version, which would likely
+close much of the gap the OpenMP run is credited with.
 
-## Technologies Used
+## Licence
 
-| Technology | Purpose |
-|-----------|---------|
-| C | Serial implementation |
-| OpenMP | CPU parallelization |
-| OpenCL | Cross-platform GPU computing |
-| CUDA | NVIDIA GPU acceleration |
-| Python | Visualization & automation |
-| Bash | Benchmark execution pipeline |
-
----
-
-## Sample Output Visualization
-
-Generated plots include:
-
-- Execution time vs matrix size
-- Speedup vs architecture
-- Thread scaling efficiency
-- CUDA vs OpenCL comparison
-
-These help evaluate performance tradeoffs across compute models.
-
----
-
-## Applications
-
-This benchmarking framework is useful for:
-
-- High-performance computing coursework
-- Parallel computing experiments
-- GPU acceleration benchmarking
-- Algorithm optimization studies
-- Architecture comparison research
-
----
-
-## Author
-
-Ishaan Singh  
-Thapar Institute of Engineering & Technology
+MIT — see [LICENSE](LICENSE).

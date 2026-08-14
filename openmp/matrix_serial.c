@@ -62,6 +62,35 @@ int main(int argc, char *argv[])
     printf("Serial CPU time: %f seconds\n",
            (double)(end - start) / CLOCKS_PER_SEC);
 
+    // Ensure file exists and has header
+    FILE *fp_check = fopen("../results/serial_results.csv", "r");
+    if (fp_check == NULL)
+    {
+        FILE *fp_init = fopen("../results/serial_results.csv", "w");
+        if (fp_init != NULL)
+        {
+            fprintf(fp_init, "size,time\n");
+            fclose(fp_init);
+        }
+    }
+    else
+    {
+        fclose(fp_check);
+    }
+
+    // Append result
+    FILE *fp = fopen("../results/serial_results.csv", "a");
+    if (fp == NULL)
+    {
+        perror("Error opening serial results file");
+    }
+    else
+    {
+        double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
+        fprintf(fp, "%d,%f\n", N, elapsed);
+        fclose(fp);
+    }
+
     free(A);
     free(B);
     free(C);
