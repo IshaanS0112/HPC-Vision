@@ -1,6 +1,11 @@
 # HPC-Vision
 
+[![CI](https://github.com/IshaanS0112/HPC-Vision/actions/workflows/ci.yml/badge.svg)](https://github.com/IshaanS0112/HPC-Vision/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![C](https://img.shields.io/badge/C-11-A8B9CC.svg?logo=c&logoColor=white)](openmp/)
+[![OpenMP](https://img.shields.io/badge/OpenMP-parallel-EE4C2C.svg)](https://www.openmp.org/)
+[![CUDA](https://img.shields.io/badge/CUDA-naive%20%7C%20tiled-76B900.svg?logo=nvidia&logoColor=white)](cuda/)
+[![OpenCL](https://img.shields.io/badge/OpenCL-1.2-red.svg)](opencl/)
 
 **Dense matrix multiplication benchmarked across four execution models:** serial
 C, OpenMP multithreaded C, OpenCL, and CUDA (naive and tiled).
