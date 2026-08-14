@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-c:
+    name: Build and run CPU targets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GCC ships OpenMP, so -fopenmp alone is sufficient here. The macOS
+      # invocation differs (-Xpreprocessor -fopenmp against Homebrew's
+      # keg-only libomp); see the OpenMP note in README.md.
+      - name: Compile serial and OpenMP targets
+        run: |
+          gcc -O2 -o openmp/serial_run openmp/matrix_serial.c -lm
+          gcc -O2 -fopenmp -o openmp/openmp_run openmp/matrix_openmp.c -lm
+
+      - run: pip install numpy
+
+      # The committed benchmark results come from full-size matrices, which are
+      # regenerated rather than stored (see .gitignore). CI generates only the
+      # smallest size: enough to prove both binaries run end to end, without
+      # spending minutes on a 3072x3072 multiply.
+      - name: Generate a small input set
+        run: python3 datasets/generate_matrices.py --sizes 256
+
+      # Both binaries resolve ../datasets and ../results relative to the working
+      # directory, so they must be invoked from a subdirectory of the repo root
+      # rather than from the root itself.
+      - name: Run serial and OpenMP
+        working-directory: openmp
+        run: |
+          mkdir -p ../results
+          ./serial_run 256
+          OMP_NUM_THREADS=2 ./openmp_run 256
+
+  plots:
+    name: Plot scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install plotting dependencies
+        run: pip install matplotlib numpy pandas
+
+      # Renders every figure from the committed results/*.csv. This is what
+      # catches a plot script that references a column the CSVs no longer have.
+      - name: Render figures from committed results
+        run: |
+          cd python_modules
+          python plot_thread_scaling.py
+          python plot_results.py
+          python plot_cuda_comparison.py
+          python plot_speedup_architecture.py
+
+  generator:
+    name: Matrix generator is deterministic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install numpy
+
+      # The .gitignore justifies not committing the matrices on the grounds
+      # that the generator is seeded and reproduces them byte-identically.
+      # That claim is worth testing rather than asserting.
+      - name: Same seed produces byte-identical matrices
+        run: |
+          python3 datasets/generate_matrices.py --sizes 256
+          sha256sum datasets/matrixA_256.txt datasets/matrixB_256.txt > first.sha
+          rm -f datasets/matrixA_256.txt datasets/matrixB_256.txt
+          python3 datasets/generate_matrices.py --sizes 256
+          sha256sum -c first.sha
