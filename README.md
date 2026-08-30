@@ -70,6 +70,12 @@ Worth stating plainly, because the numbers are the deliverable:
 Re-running those two on a real device and committing the raw timer output is the
 single highest-value improvement to this project.
 
+`cuda/run_cuda_colab.ipynb` is the instrumentation for the CUDA half of that:
+`cudaEvent` timing around the kernel only, one discarded warm-up launch, each
+size the mean of 10 launches, and a per-run correctness assertion (both inputs
+are all-ones, so every output element must equal `n`). It regenerates both CUDA
+CSVs. OpenCL still needs the equivalent harness.
+
 ---
 
 ## Repository layout

@@ -45,3 +45,7 @@ FETCH_HEAD
 # CMake / build output
 build/
 compile_commands.json
+# Environment / secrets
+.env
+.env.*
+!.env.example
