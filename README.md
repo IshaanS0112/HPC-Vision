@@ -108,17 +108,18 @@ The generator is seeded, so the matrices are byte-identical on every machine and
 a timing taken today is comparable to one taken last month.
 
 ```bash
-# Serial + OpenMP, then plots
+# Serial + OpenMP for every generated size, then plots
 python main.py
+python main.py 256 512 1024     # or just these sizes
 
 # Charts only, from the committed CSVs
 ./run_all.sh
 ```
 
-**OpenMP on macOS:** `main.py` passes `-Xpreprocessor -fopenmp` with Homebrew
-`libomp` paths (`/opt/homebrew/opt/libomp`), because Apple Clang does not ship
-OpenMP. On Linux with GCC, `-fopenmp` alone is enough and those flags need
-removing.
+**OpenMP:** on macOS `main.py` compiles with `-Xpreprocessor -fopenmp` against
+Homebrew's `libomp` (`brew install libomp`), because Apple Clang does not ship
+OpenMP; on Linux it uses plain `-fopenmp`. The binaries are built into
+`openmp/` and run from there, and every run appends a row to `results/*.csv`.
 
 **CUDA:** run `cuda/run_cuda_colab.ipynb` in Google Colab — no local NVIDIA GPU
 required.
